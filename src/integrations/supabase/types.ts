@@ -116,6 +116,42 @@ export type Database = {
         }
         Relationships: []
       }
+      paybis_settings: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          enabled: boolean
+          hmac_key_base64: string
+          id: boolean
+          partner_id: string
+          rsa_private_key_pem: string | null
+          updated_at: string
+          widget_environment: string
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          hmac_key_base64: string
+          id?: boolean
+          partner_id: string
+          rsa_private_key_pem?: string | null
+          updated_at?: string
+          widget_environment?: string
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          hmac_key_base64?: string
+          id?: boolean
+          partner_id?: string
+          rsa_private_key_pem?: string | null
+          updated_at?: string
+          widget_environment?: string
+        }
+        Relationships: []
+      }
       wallet_transactions: {
         Row: {
           amount: number

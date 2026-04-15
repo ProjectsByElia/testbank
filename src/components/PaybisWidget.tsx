@@ -31,13 +31,14 @@ function getTitle(region: Region) {
 
 function getDescription(region: Region) {
   return region === "EUROZONE"
-    ? "Launch Paybis to buy crypto with EUR using the signed standalone widget flow."
-    : "Launch Paybis to buy crypto with USD using the signed standalone widget flow.";
+    ? "Launch Paybis to buy crypto with EUR using API-based requestId sessions."
+    : "Launch Paybis to buy crypto with USD using API-based requestId sessions.";
 }
 
 export default function PaybisWidget({ region }: { region: Region }) {
   const [amountFrom, setAmountFrom] = useState(region === "EUROZONE" ? "100" : "100");
   const [currencyCodeTo, setCurrencyCodeTo] = useState("BTC");
+  const [cryptoAddress, setCryptoAddress] = useState("");
   const [widgetUrl, setWidgetUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -50,22 +51,37 @@ export default function PaybisWidget({ region }: { region: Region }) {
     setError("");
 
     try {
-      const { data, error } = await supabase.rpc("create_paybis_widget_url", {
-        p_transaction_flow: "buyCrypto",
-        p_currency_code_from: currencyCodeFrom,
-        p_currency_code_to: currencyCodeTo,
-        p_amount_from: amountFrom,
-        p_locale: locale,
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const successReturnURL = `${window.location.origin}/?paybisStatus=success`;
+      const failureReturnURL = `${window.location.origin}/?paybisStatus=failed`;
+
+      const { data, error } = await supabase.functions.invoke<{ widgetUrl: string }>("create-paybis-request", {
+        body: {
+          transactionFlow: "buyCrypto",
+          currencyCodeFrom,
+          currencyCodeTo,
+          amountFrom,
+          locale,
+          successReturnURL,
+          failureReturnURL,
+          cryptoAddress: cryptoAddress.trim() || null,
+        },
       });
 
       if (error) {
-        throw new Error(error.message || "Failed to prepare the Paybis widget URL.");
+        throw new Error(error.message || "Failed to prepare the Paybis request.");
       }
-      console.log("datadatadata", data);
 
-      setWidgetUrl(data || "");
+      const nextUrl = data?.widgetUrl ?? "";
+      if (!nextUrl) {
+        throw new Error("Paybis request was created but no widget URL was returned.");
+      }
+      setWidgetUrl(nextUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to prepare the Paybis widget URL.");
+      setError(err instanceof Error ? err.message : "Failed to prepare the Paybis request.");
     } finally {
       setLoading(false);
     }
@@ -126,9 +142,18 @@ export default function PaybisWidget({ region }: { region: Region }) {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Destination Wallet Address (optional)</Label>
+              <Input
+                value={cryptoAddress}
+                onChange={(e) => setCryptoAddress(e.target.value)}
+                placeholder={`Paste your ${currencyCodeTo} wallet address`}
+              />
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <Button onClick={launchWidget} disabled={loading} className="sm:w-auto">
-                {loading ? "Preparing Paybis..." : "Load Paybis Widget"}
+                {loading ? "Preparing Paybis session..." : "Load Paybis Widget"}
               </Button>
               {widgetUrl ? (
                 <Button asChild variant="outline">
@@ -142,10 +167,10 @@ export default function PaybisWidget({ region }: { region: Region }) {
 
             <Alert>
               <ShieldAlert className="h-4 w-4" />
-              <AlertTitle>Database-backed signing</AlertTitle>
+              <AlertTitle>API-based requestId flow</AlertTitle>
               <AlertDescription>
-                Paybis requires server-side HMAC signing. This app now calls a Supabase RPC that reads the partner
-                configuration from the database and returns only the signed widget URL.
+                Paybis sessions are now generated server-side by creating a quote and requestId, then the widget is
+                opened using that one-time request context.
               </AlertDescription>
             </Alert>
 
@@ -169,7 +194,7 @@ export default function PaybisWidget({ region }: { region: Region }) {
                 title={`${region} Paybis widget`}
                 src={widgetUrl}
                 className="w-full min-h-[900px] rounded-lg border border-border"
-                allow="payment *; clipboard-read; clipboard-write"
+                allow="clipboard-read; clipboard-write *; payment *; camera; microphone;"
               />
             ) : (
               <div className="min-h-[420px] rounded-lg border border-dashed border-primary/30 bg-muted/20 flex items-center justify-center p-6 text-center text-muted-foreground">
