@@ -58,7 +58,7 @@ export default function PaybisWidget({ region }: { region: Region }) {
       const successReturnURL = `${window.location.origin}/?paybisStatus=success`;
       const failureReturnURL = `${window.location.origin}/?paybisStatus=failed`;
 
-      const { data, error } = await supabase.functions.invoke<{ widgetUrl: string }>("paybis-request", {
+      const { data, error } = await supabase.functions.invoke<{ widgetUrl: string }>("create-paybis-request", {
         body: {
           transactionFlow: "buyCrypto",
           currencyCodeFrom,
