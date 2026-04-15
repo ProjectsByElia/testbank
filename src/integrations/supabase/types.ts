@@ -229,9 +229,14 @@ export type Database = {
       create_paybis_widget_url: {
         Args: {
           p_amount_from?: string
+          p_crypto_address?: string
           p_currency_code_from?: string
           p_currency_code_to?: string
+          p_failure_return_url?: string
+          p_layout?: string
           p_locale?: string
+          p_partner_user_id?: string
+          p_success_return_url?: string
           p_transaction_flow?: string
         }
         Returns: string

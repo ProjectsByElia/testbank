@@ -38,6 +38,7 @@ function getDescription(region: Region) {
 export default function PaybisWidget({ region }: { region: Region }) {
   const [amountFrom, setAmountFrom] = useState(region === "EUROZONE" ? "100" : "100");
   const [currencyCodeTo, setCurrencyCodeTo] = useState("BTC");
+  const [cryptoAddress, setCryptoAddress] = useState("");
   const [widgetUrl, setWidgetUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -50,18 +51,29 @@ export default function PaybisWidget({ region }: { region: Region }) {
     setError("");
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const successReturnURL = encodeURIComponent(`${window.location.origin}/?paybisStatus=success`);
+      const failureReturnURL = encodeURIComponent(`${window.location.origin}/?paybisStatus=failed`);
+
       const { data, error } = await supabase.rpc("create_paybis_widget_url", {
         p_transaction_flow: "buyCrypto",
         p_currency_code_from: currencyCodeFrom,
         p_currency_code_to: currencyCodeTo,
         p_amount_from: amountFrom,
         p_locale: locale,
+        p_crypto_address: cryptoAddress.trim() || null,
+        p_partner_user_id: user?.id ?? null,
+        p_success_return_url: successReturnURL,
+        p_failure_return_url: failureReturnURL,
+        p_layout: "embed",
       });
 
       if (error) {
         throw new Error(error.message || "Failed to prepare the Paybis widget URL.");
       }
-      console.log("datadatadata", data);
 
       setWidgetUrl(data || "");
     } catch (err) {
@@ -126,6 +138,15 @@ export default function PaybisWidget({ region }: { region: Region }) {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Destination Wallet Address (optional, recommended)</Label>
+              <Input
+                value={cryptoAddress}
+                onChange={(e) => setCryptoAddress(e.target.value)}
+                placeholder={`Paste your ${currencyCodeTo} wallet address`}
+              />
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <Button onClick={launchWidget} disabled={loading} className="sm:w-auto">
                 {loading ? "Preparing Paybis..." : "Load Paybis Widget"}
@@ -149,6 +170,16 @@ export default function PaybisWidget({ region }: { region: Region }) {
               </AlertDescription>
             </Alert>
 
+            <Alert>
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Completion reliability</AlertTitle>
+              <AlertDescription>
+                The integration now includes partner user identity, destination wallet address, return URLs, and embed
+                layout hints in the signed payload. If card authorization still stalls in an embedded flow with your
+                issuer, use “Open In New Tab” to complete 3DS in a full-page context.
+              </AlertDescription>
+            </Alert>
+
             {error ? (
               <Alert variant="destructive">
                 <ShieldAlert className="h-4 w-4" />
@@ -169,7 +200,7 @@ export default function PaybisWidget({ region }: { region: Region }) {
                 title={`${region} Paybis widget`}
                 src={widgetUrl}
                 className="w-full min-h-[900px] rounded-lg border border-border"
-                allow="payment *; clipboard-read; clipboard-write"
+                allow="clipboard-read; clipboard-write *; payment *; camera; microphone;"
               />
             ) : (
               <div className="min-h-[420px] rounded-lg border border-dashed border-primary/30 bg-muted/20 flex items-center justify-center p-6 text-center text-muted-foreground">
