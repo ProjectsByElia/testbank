@@ -58,7 +58,7 @@ export default function PaybisWidget({ region }: { region: Region }) {
       const successReturnURL = encodeURIComponent(`${window.location.origin}/?paybisStatus=success`);
       const failureReturnURL = encodeURIComponent(`${window.location.origin}/?paybisStatus=failed`);
 
-      const { data, error } = await supabase.rpc("create_paybis_widget_url", {
+      const { data: extendedData, error: extendedError } = await supabase.rpc("create_paybis_widget_url", {
         p_transaction_flow: "buyCrypto",
         p_currency_code_from: currencyCodeFrom,
         p_currency_code_to: currencyCodeTo,
@@ -71,8 +71,25 @@ export default function PaybisWidget({ region }: { region: Region }) {
         p_layout: "embed",
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to prepare the Paybis widget URL.");
+      let data = extendedData;
+      let rpcError = extendedError;
+
+      // Backward compatibility: some environments may still have the old 5-arg RPC signature cached.
+      if (rpcError?.code === "PGRST202") {
+        const { data: legacyData, error: legacyError } = await supabase.rpc("create_paybis_widget_url", {
+          p_transaction_flow: "buyCrypto",
+          p_currency_code_from: currencyCodeFrom,
+          p_currency_code_to: currencyCodeTo,
+          p_amount_from: amountFrom,
+          p_locale: locale,
+        });
+
+        data = legacyData;
+        rpcError = legacyError;
+      }
+
+      if (rpcError) {
+        throw new Error(rpcError.message || "Failed to prepare the Paybis widget URL.");
       }
 
       setWidgetUrl(data || "");
